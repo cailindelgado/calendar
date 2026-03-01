@@ -70,7 +70,9 @@ def create_event():
 
 @api.route('/events/<int:id>', methods=['PUT'])
 def update_event(id):
-    # same validation check as delete, then update similarly with creating a new event
+    # same validation check as delete
+    
+    # then update similarly with creating a new event
     pass
 
 
@@ -80,8 +82,10 @@ def delete_event(id):
     if event is None:
         return jsonify({'error': 'Event not found'}), 404
 
-    user_fingerprint = Fingerprints.query.get(event.fingerprint)
-    if user_fingerprint is None:
+    usr_fingerprint = Fingerprints.query.filter_by(
+        person_id=event.person_id
+        ).first()
+    if usr_fingerprint is None:
         return jsonify({'error': 'Fingerprint not found'}), 404
 
     # get fingerprint from user
@@ -89,7 +93,7 @@ def delete_event(id):
     if fingerprint is None:
         return jsonify({'error': 'Missing fingerprint'}), 400
 
-    if user_fingerprint != fingerprint:
+    if usr_fingerprint.fingerprint != fingerprint:
         return jsonify({'error': 'Unauthorised'}), 403 
     
     data = event.to_dict()
