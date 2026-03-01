@@ -9,19 +9,19 @@ PHONE_NUM_LENGTH = 12
 
 
 class Fingerprints(db.Model):
-    ''' Device Fingerprint db: Fingerprints[p.id, fingerprint_id] '''
+    ''' Device Fingerprint db: Fingerprints[id, person_id, fingerprint, created_at] '''
     __tablename__ = 'fingerprints'
 
     id = db.Column(db.Integer, primary_key=True)
     person_id = db.Column(db.Integer, db.ForeignKey('person.id'), nullable=False)
-    fingerprint_id = db.Column(db.String(FINGERPRINT_LENGTH), nullable=False, unique=True)
+    fingerprint = db.Column(db.String(FINGERPRINT_LENGTH), nullable=False, unique=True)
     created_at = db.Column(db.DateTime, nullable=False, default=lambda: dt.now(tz.utc))
 
     def to_dict(self):
         return {
             'id': self.id,
             'person_id': self.person_id,
-            'fingerprint_id': self.fingerprint_id,
+            'fingerprint': self.fingerprint,
             'created_at': self.created_at,
         }
     
@@ -52,7 +52,7 @@ class Person(db.Model):
         return f'<Person {self.id}>'
 
 class Events(db.Model):
-    ''' Event's: Event[id, p.id, description] '''
+    ''' Event's: Event[id, person_id, description, time] '''
 
     __tablename__ = 'events'
 
