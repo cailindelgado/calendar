@@ -72,28 +72,42 @@ def create_event():
 @api.route('/events/<int:id>', methods=['PUT'])
 def update_event(id):
     # same validation check as delete
-    event = Events.query.get(id)
-
-    usr_fingerprint = Fingerprints.query.filter_by(
-        person_id=event.person_id
-    ).first()
-    if usr_fingerprint is None:
-        return jsonify({'error': 'Fingerprint not found'}), 404
-
-    # get fingerprint from user
-    fingerprint = request.headers.get('X-Fingerprint-ID')
-    if fingerprint is None:
-        return jsonify({'error': 'Missing fingerprint'}), 400
-
-    if usr_fingerprint.fingerprint != fingerprint:
-        return jsonify({'error': 'Unauthorised'}), 403
-
-    # person =
+    out = validate(Events.query.get(id),
+                   request.headers.get('X-Fingerprint-ID'))
+    if out[1] != 200:
+        return out
 
     # then update similarly with creating a new event
-    pass
+    person = Person(
+        phone_num=request.json.get('phone_num'),
+        f_name=request.json.get('f_name'),
+        l_name=request.json.get('l_name'),
+    )
+
+    db.session.add(person)
+    db.session.flush()
+
+    event = Events(
+        person_id=person.id,
+        time=request.json.get('time'),
+    )
+
+    if 'description' in request.json:
+        event.description = request.json.get('description')
+
+    fingerprint = Fingerprints(
+        person_id=person.id,
+        fingerprint=request.headers.get('X-Fingerprint-ID'),
+    )
+
+    db.session.add(event)
+    db.session.add(fingerprint)
+    db.session.commit()
+
+    return jsonify(event.to_dict()), 200
 
 
+"""
 @api.route('/events/<int:id>', methods=['DELETE'])
 def delete_event(id):
     event = Events.query.get(id)
@@ -106,7 +120,7 @@ def delete_event(id):
 
     usr_fingerprint = Fingerprints.query.filter_by(
         person_id=event.person_id
-    ).first()
+    ).first() # multiple fingerprints
     if usr_fingerprint is None:
         return jsonify({'error': 'Fingerprint not found'}), 404
 
@@ -117,9 +131,9 @@ def delete_event(id):
     db.session.delete(event)
     db.session.commit()
     return jsonify(data), 200
-
-
 """
+
+
 @api.route('/events/<int:id>', methods=['DELETE'])
 def delete_event(id):
     event = Events.query.get(id)
@@ -147,4 +161,3 @@ def validate(event: Events, fingerprint: str):
         return jsonify({'error': 'Unauthorised'}), 403
 
     return jsonify(event.to_dict()), 200
-"""
