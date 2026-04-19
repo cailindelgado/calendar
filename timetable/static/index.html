@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Missionary Meal Roster</title>
+  <title>Brisbane Ward -- Missionary Meal Roster</title>
 
   <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="/static/style.css" />
@@ -31,7 +31,6 @@
 <!-- Sign-up modal -->
 <div class="modal-backdrop" id="signupModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('signupModal')">&times;</button>
     <h2 id="signupModalTitle">Sign up to bring a meal</h2>
     <form id="signupForm" onsubmit="submitSignup(event)">
       <div class="form-row">
@@ -53,7 +52,7 @@
         <input type="tel" id="phone_num" placeholder="e.g. 0412 345 678" pattern="^\+?[\d\s\-\(\)]{7,12}$" title="7–12 digits, spaces, hyphens, or parentheses" required />
       </div>
       <div class="form-group">
-        <label>What are you bringing? (optional)</label>
+        <label>Notes for the missionaries (Optional)</label>
         <textarea id="description" maxlength="200"></textarea>
       </div>
       <div id="signupError" class="error-msg" style="display:none"></div>
@@ -68,7 +67,6 @@
 <!-- Event detail modal -->
 <div class="modal-backdrop" id="detailModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeModal('detailModal')">&times;</button>
     <h2 id="detailDate"></h2>
     <div id="detailBody"></div>
     <div class="modal-actions" id="detailActions"></div>

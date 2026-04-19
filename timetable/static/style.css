@@ -60,6 +60,9 @@ main {
 }
 
 /* FullCalendar overrides */
+.fc .fc-button {
+  text-transform: capitalize;
+}
 .fc .fc-button-primary {
   background: #4a3728;
   border-color: #4a3728;
@@ -120,18 +123,9 @@ main {
   font-weight: normal;
 }
 
-.modal-close {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  background: none;
-  border: none;
-  font-size: 1.4rem;
-  cursor: pointer;
-  color: #888;
-  line-height: 1;
-}
-.modal-close:hover { color: #333; }
+#signupModal h2 { text-align: left; }
+#detailModal h2 { text-align: center; }
+
 
 .form-row {
   display: flex;
@@ -148,8 +142,6 @@ main {
   font-size: 0.78rem;
   color: #666;
   margin-bottom: 0.3rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 .form-group input,
 .form-group textarea {
@@ -200,22 +192,13 @@ main {
 .event-detail-name {
   font-size: 1rem;
   margin-bottom: 0.4rem;
+  text-align: center;
 }
 .event-detail-meta {
   font-size: 0.85rem;
   color: #777;
   margin-bottom: 0.3rem;
-}
-.own-badge {
-  display: inline-block;
-  background: #7a9e6e;
-  color: #fff;
-  font-size: 0.72rem;
-  padding: 0.15rem 0.55rem;
-  border-radius: 20px;
-  margin-bottom: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  text-align: center;
 }
 
 .error-msg {

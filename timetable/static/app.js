@@ -16,7 +16,6 @@ function getFingerprint() {
 // ---- State ----
 let calendar;
 let pendingDate = null;   // ISO date string clicked for signup
-let editingEventId = null;
 let activeType = 'elders';
 
 function setType(type) {
@@ -104,8 +103,8 @@ async function deleteEvent(id) {
 }
 
 // ---- Ownership tracking (localStorage) ----
-// NOTE (backend gap 2): no server-side ownership check endpoint.
-// We track created event IDs locally alongside the fingerprint.
+// The server enforces ownership via X-Fingerprint-ID on DELETE.
+// We also track event IDs locally so we can show the delete button on this device's signups.
 function ownedEvents() {
   return JSON.parse(localStorage.getItem('meal_roster_owned') || '[]');
 }
@@ -115,11 +114,11 @@ function markOwnEvent(id) {
   localStorage.setItem('meal_roster_owned', JSON.stringify(owned));
 }
 function unmarkOwnEvent(id) {
-  const owned = ownedEvents().filter(x => x !== id);
+  const owned = ownedEvents().filter(x => x !== Number(id));
   localStorage.setItem('meal_roster_owned', JSON.stringify(owned));
 }
 function isOwnEvent(id) {
-  return ownedEvents().includes(id);
+  return ownedEvents().includes(Number(id));
 }
 
 // ---- Signup form submit ----
@@ -163,19 +162,33 @@ function showDetail(info) {
   });
 
   const body = document.getElementById('detailBody');
-  body.innerHTML = `
-    ${own ? '<span class="own-badge">Your signup</span>' : ''}
-    <p class="event-detail-name">${props.f_name} ${props.l_name}</p>
-    <p class="event-detail-meta">${props.phone_num}</p>
-    ${props.description ? `<p class="event-detail-meta">${props.description}</p>` : ''}
-  `;
+  body.innerHTML = '';
+
+  const name = document.createElement('p');
+  name.className = 'event-detail-name';
+  name.textContent = `${props.f_name} ${props.l_name}`;
+  body.appendChild(name);
+
+  const phone = document.createElement('p');
+  phone.className = 'event-detail-meta';
+  phone.textContent = props.phone_num;
+  body.appendChild(phone);
+
+  if (props.description) {
+    const desc = document.createElement('p');
+    desc.className = 'event-detail-meta';
+    desc.textContent = props.description;
+    body.appendChild(desc);
+  }
 
   const actions = document.getElementById('detailActions');
   actions.innerHTML = '';
+  actions.style.justifyContent = own ? 'space-between' : 'flex-end';
+
   if (own) {
     const delBtn = document.createElement('button');
     delBtn.className = 'btn btn-danger';
-    delBtn.textContent = 'Cancel my signup';
+    delBtn.textContent = 'Cancel signup';
     delBtn.onclick = async () => {
       if (!confirm('Are you sure you want to cancel your signup?')) return;
       try {
@@ -210,9 +223,15 @@ document.addEventListener('DOMContentLoaded', () => {
       right: 'dayGridMonth,listMonth',
     },
     height: 'auto',
+    noEventsText: 'No events scheduled',
     events: async (_info, successCb, failureCb) => {
       try {
-        successCb(await fetchEvents());
+        let events = await fetchEvents();
+        if (calendar.view.type.startsWith('list')) {
+          const now = new Date();
+          events = events.filter(e => new Date(e.start) >= now);
+        }
+        successCb(events);
       } catch (err) {
         failureCb(err);
         showToast('Could not load events — is the server running?');

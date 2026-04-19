@@ -3,6 +3,8 @@ from timetable.models import db
 from timetable.models.timetable import Events, Person, Fingerprints
 from datetime import datetime as dt, timezone as tz
 import re
+import uuid
+
 
 PHONE_RE = re.compile(r'^\+?[\d\s\-\(\)]{7,12}$')
 
@@ -41,19 +43,18 @@ def create_event():
     if not request.is_json:
         return jsonify({'error': 'Content-Type must be application/json'}), 415
 
-    time_str = request.json.get('time')
-    if time_str is None:
-        return jsonify({'error': 'time is required'}), 400
+    fp_value = request.headers.get('X-Fingerprint-ID')
+    if not fp_value:
+        return jsonify({'error': 'X-Fingerprint-ID header is required'}), 400
+
     try:
-        event_time = dt.fromisoformat(time_str)
+        uuid.UUID(fp_value)
     except ValueError:
-        return jsonify({'error': 'Invalid time format'}), 400
+        return jsonify({'error': 'Invalid fingerprint format'}), 400
 
-    if event_time.tzinfo is None:
-        event_time = event_time.replace(tzinfo=tz.utc)
-
-    if event_time < dt.now(tz.utc):
-        return jsonify({'error': 'Invalid time set'}), 400
+    event_time, err = validate_time(request.json.get('time'))
+    if err is not None:
+        return err
 
     missionary_type = request.json.get('missionary_type')
     if missionary_type not in ('elders', 'sisters'):
@@ -76,22 +77,24 @@ def create_event():
         )
         if 'm_name' in request.json:
             person.m_name = request.json.get('m_name')
-
         db.session.add(person)
+        db.session.flush()
+
+    fp = Fingerprints.query.filter_by(fingerprint=fp_value).first()
+    if fp is None:
+        fp = Fingerprints(fingerprint=fp_value)
+        db.session.add(fp)
         db.session.flush()
 
     event = Events(
         person_id=person.id,
+        fingerprint_id=fp.id,
         time=event_time,
         missionary_type=missionary_type,
     )
 
     if 'description' in request.json:
         event.description = request.json.get('description')
-
-    fp_value = request.headers.get('X-Fingerprint-ID')
-    if not Fingerprints.query.filter_by(fingerprint=fp_value).first():
-        db.session.add(Fingerprints(person_id=person.id, fingerprint=fp_value))
 
     db.session.add(event)
     db.session.commit()
@@ -108,22 +111,15 @@ def update_event(id):
     if event is None:
         return jsonify({'error': 'Event not found'}), 404
 
-    out = validate(event, request.headers.get('X-Fingerprint-ID'))
+    out = validate_fingerprint(event, request.headers.get('X-Fingerprint-ID'))
     if out[1] != 200:
         return out
 
     time_str = request.json.get('time')
     if time_str is not None:
-        try:
-            event_time = dt.fromisoformat(time_str)
-        except ValueError:
-            return jsonify({'error': 'Invalid time format'}), 400
-
-        event_time = event_time.replace(tzinfo=tz.utc)
-
-        if event_time < dt.now(tz.utc):
-            return jsonify({'error': 'Invalid time set'}), 400
-
+        event_time, err = validate_time(time_str)
+        if err is not None:
+            return err
         event.time = event_time
 
     missionary_type = request.json.get('missionary_type')
@@ -147,7 +143,7 @@ def delete_event(id):
     if event is None:
         return jsonify({'error': 'Event not found'}), 404
 
-    out = validate(event, request.headers.get('X-Fingerprint-ID'))
+    out = validate_fingerprint(event, request.headers.get('X-Fingerprint-ID'))
     if out[1] != 200:
         return out
 
@@ -157,18 +153,37 @@ def delete_event(id):
     return jsonify(data), 200
 
 
-def validate(event: Events, fingerprint: str):
+# NOTE: Helper functions
+
+
+def validate_fingerprint(event: Events, fingerprint: str):
     if fingerprint is None:
         return jsonify({'error': 'Missing fingerprint'}), 400
 
-    usr_fingerprint = Fingerprints.query.filter_by(
-        person_id=event.person_id
-    ).first()
+    try:
+        uuid.UUID(fingerprint)
+    except ValueError:
+        return jsonify({'error': 'Invalid fingerprint format'}), 400
 
-    if usr_fingerprint is None:
-        return jsonify({'error': 'Fingerprint not found'}), 404
-
-    if usr_fingerprint.fingerprint != fingerprint:
+    if event.fingerprint.fingerprint != fingerprint:
         return jsonify({'error': 'Unauthorised'}), 403
 
     return jsonify(event.to_dict()), 200
+
+
+def validate_time(time_str: str):
+    if time_str is None:
+        return None, (jsonify({'error': 'time is required'}), 400)
+
+    try:
+        event_time = dt.fromisoformat(time_str)
+    except ValueError:
+        return None, (jsonify({'error': 'Invalid time format'}), 400)
+
+    if event_time.tzinfo is None:
+        event_time = event_time.replace(tzinfo=tz.utc)
+
+    if event_time < dt.now(tz.utc):
+        return None, (jsonify({'error': 'Invalid time set'}), 400)
+
+    return event_time, None
