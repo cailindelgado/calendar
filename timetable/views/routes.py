@@ -2,6 +2,9 @@ from flask import Blueprint, jsonify, request
 from timetable.models import db
 from timetable.models.timetable import Events, Person, Fingerprints
 from datetime import datetime as dt, timezone as tz
+import re
+
+PHONE_RE = re.compile(r'^\+?[\d\s\-\(\)]{7,12}$')
 
 api = Blueprint('api', __name__, url_prefix='/calendar')
 
@@ -13,17 +16,20 @@ def health():
 
 @api.route('/events', methods=['GET'])
 def get_events():
-    events = Events.query.all()
-    result = []
-    for event in events:
-        result.append(event.to_dict())
+    type_filter = request.args.get('type')
+    query = Events.query
 
-    return jsonify(result)
+    if type_filter in ('elders', 'sisters'):
+        query = query.filter_by(missionary_type=type_filter)
+
+    events = query.all()
+    return jsonify([e.to_dict() for e in events])
 
 
 @api.route('/events/<int:id>', methods=['GET'])
 def get_event(id):
-    event = Events.query.get(id)
+    event = db.session.get(Events, id)
+
     if event is None:
         return jsonify({'error': 'Event not found'}), 404
 
@@ -32,11 +38,35 @@ def get_event(id):
 
 @api.route('/events', methods=['POST'])
 def create_event():
-    if request.json.get('time') < dt.now(tz.utc):
+    if not request.is_json:
+        return jsonify({'error': 'Content-Type must be application/json'}), 415
+
+    time_str = request.json.get('time')
+    if time_str is None:
+        return jsonify({'error': 'time is required'}), 400
+    try:
+        event_time = dt.fromisoformat(time_str)
+    except ValueError:
+        return jsonify({'error': 'Invalid time format'}), 400
+
+    if event_time.tzinfo is None:
+        event_time = event_time.replace(tzinfo=tz.utc)
+
+    if event_time < dt.now(tz.utc):
         return jsonify({'error': 'Invalid time set'}), 400
+
+    missionary_type = request.json.get('missionary_type')
+    if missionary_type not in ('elders', 'sisters'):
+        return jsonify({'error': 'missionary_type must be elders or sisters'}), 400
 
     p_num = request.json.get('phone_num')
     last_name = request.json.get('l_name')
+    if p_num is None or last_name is None or request.json.get('f_name') is None:
+        return jsonify({'error': 'phone_num, f_name, and l_name are required'}), 400
+
+    if not PHONE_RE.match(p_num):
+        return jsonify({'error': 'Invalid phone number'}), 400
+
     person = Person.query.filter_by(phone_num=p_num, l_name=last_name).first()
     if person is None:
         person = Person(
@@ -46,24 +76,24 @@ def create_event():
         )
         if 'm_name' in request.json:
             person.m_name = request.json.get('m_name')
+
         db.session.add(person)
         db.session.flush()
 
     event = Events(
         person_id=person.id,
-        time=request.json.get('time'),
+        time=event_time,
+        missionary_type=missionary_type,
     )
 
     if 'description' in request.json:
         event.description = request.json.get('description')
 
-    fingerprint = Fingerprints(
-        person_id=person.id,
-        fingerprint=request.headers.get('X-Fingerprint-ID'),
-    )
+    fp_value = request.headers.get('X-Fingerprint-ID')
+    if not Fingerprints.query.filter_by(fingerprint=fp_value).first():
+        db.session.add(Fingerprints(person_id=person.id, fingerprint=fp_value))
 
     db.session.add(event)
-    db.session.add(fingerprint)
     db.session.commit()
 
     return jsonify(event.to_dict()), 201
@@ -71,80 +101,60 @@ def create_event():
 
 @api.route('/events/<int:id>', methods=['PUT'])
 def update_event(id):
-    # same validation check as delete
-    out = validate(Events.query.get(id),
-                   request.headers.get('X-Fingerprint-ID'))
+    if not request.is_json:
+        return jsonify({'error': 'Content-Type must be application/json'}), 415
+
+    event = db.session.get(Events, id)
+    if event is None:
+        return jsonify({'error': 'Event not found'}), 404
+
+    out = validate(event, request.headers.get('X-Fingerprint-ID'))
     if out[1] != 200:
         return out
 
-    # then update similarly with creating a new event
-    person = Person(
-        phone_num=request.json.get('phone_num'),
-        f_name=request.json.get('f_name'),
-        l_name=request.json.get('l_name'),
-    )
+    time_str = request.json.get('time')
+    if time_str is not None:
+        try:
+            event_time = dt.fromisoformat(time_str)
+        except ValueError:
+            return jsonify({'error': 'Invalid time format'}), 400
 
-    db.session.add(person)
-    db.session.flush()
+        event_time = event_time.replace(tzinfo=tz.utc)
 
-    event = Events(
-        person_id=person.id,
-        time=request.json.get('time'),
-    )
+        if event_time < dt.now(tz.utc):
+            return jsonify({'error': 'Invalid time set'}), 400
+
+        event.time = event_time
+
+    missionary_type = request.json.get('missionary_type')
+    if missionary_type is not None:
+        if missionary_type not in ('elders', 'sisters'):
+            return jsonify({'error': 'missionary_type must be elders or sisters'}), 400
+
+        event.missionary_type = missionary_type
 
     if 'description' in request.json:
         event.description = request.json.get('description')
 
-    fingerprint = Fingerprints(
-        person_id=person.id,
-        fingerprint=request.headers.get('X-Fingerprint-ID'),
-    )
-
-    db.session.add(event)
-    db.session.add(fingerprint)
     db.session.commit()
 
     return jsonify(event.to_dict()), 200
 
 
-"""
 @api.route('/events/<int:id>', methods=['DELETE'])
 def delete_event(id):
-    event = Events.query.get(id)
+    event = db.session.get(Events, id)
     if event is None:
         return jsonify({'error': 'Event not found'}), 404
 
-    fingerprint = request.headers.get('X-Fingerprint-ID')
-    if fingerprint is None:
-        return jsonify({'error': 'Missing fingerprint'}), 400
-
-    usr_fingerprint = Fingerprints.query.filter_by(
-        person_id=event.person_id
-    ).first() # multiple fingerprints
-    if usr_fingerprint is None:
-        return jsonify({'error': 'Fingerprint not found'}), 404
-
-    if usr_fingerprint.fingerprint != fingerprint:
-        return jsonify({'error': 'Unauthorised'}), 403
+    out = validate(event, request.headers.get('X-Fingerprint-ID'))
+    if out[1] != 200:
+        return out
 
     data = event.to_dict()
     db.session.delete(event)
     db.session.commit()
     return jsonify(data), 200
-"""
-
-
-@api.route('/events/<int:id>', methods=['DELETE'])
-def delete_event(id):
-    event = Events.query.get(id)
-    out = validate(event, request.headers.get('X-Fingerprint-ID'))
-
-    if out[1] != 200:
-        return out
-
-    db.session.delete(event)
-    db.session.commit()
-    return out
 
 
 def validate(event: Events, fingerprint: str):
@@ -154,6 +164,7 @@ def validate(event: Events, fingerprint: str):
     usr_fingerprint = Fingerprints.query.filter_by(
         person_id=event.person_id
     ).first()
+
     if usr_fingerprint is None:
         return jsonify({'error': 'Fingerprint not found'}), 404
 

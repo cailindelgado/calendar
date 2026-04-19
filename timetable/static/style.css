@@ -1,0 +1,251 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: Georgia, 'Times New Roman', serif;
+  background: #f9f6f0;
+  color: #2c2c2c;
+  min-height: 100vh;
+}
+
+header {
+  background: #4a3728;
+  color: #f5e6d3;
+  padding: 1.25rem 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+header h1 {
+  font-size: 1.5rem;
+  font-weight: normal;
+  letter-spacing: 0.04em;
+}
+
+header p {
+  font-size: 0.9rem;
+  color: #c9b49a;
+  margin-top: 0.2rem;
+}
+
+main {
+  max-width: 1100px;
+  margin: 2rem auto;
+  padding: 0 1.5rem;
+}
+
+.type-toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.toggle-btn {
+  padding: 0.4rem 1rem;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9rem;
+  background: #e8e2db;
+  color: #555;
+}
+.toggle-btn.active-elders  { background: #2980b9; color: #fff; border-color: #1f6391; }
+.toggle-btn.active-sisters { background: #9b59b6; color: #fff; border-color: #7d3c98; }
+
+#calendar {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  padding: 1.5rem;
+}
+
+/* FullCalendar overrides */
+.fc .fc-button-primary {
+  background: #4a3728;
+  border-color: #4a3728;
+}
+.fc .fc-button-primary:hover {
+  background: #6b5040;
+  border-color: #6b5040;
+}
+.fc .fc-button-primary:not(:disabled).fc-button-active {
+  background: #6b5040;
+  border-color: #6b5040;
+}
+.fc-day-today {
+  background: #fdf3e7 !important;
+}
+.fc-event {
+  background: #4a3728 !important;
+  border-color: #4a3728 !important;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+.fc-event.elders-event  { background: #2980b9 !important; border-color: #1f6391 !important; }
+.fc-event.sisters-event { background: #9b59b6 !important; border-color: #7d3c98 !important; }
+
+.fc-event.elders-event.own-event  { background: #5dade2 !important; border-color: #fff !important; border-width: 2px !important; }
+.fc-event.sisters-event.own-event { background: #bb8fce !important; border-color: #fff !important; border-width: 2px !important; }
+.fc-daygrid-day:hover {
+  background: #fdf3e7;
+  cursor: pointer;
+}
+
+/* ---- Modal ---- */
+.modal-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.modal-backdrop.open { display: flex; }
+
+.modal {
+  background: #fff;
+  border-radius: 10px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  position: relative;
+}
+
+.modal h2 {
+  font-size: 1.2rem;
+  color: #4a3728;
+  margin-bottom: 1.25rem;
+  font-weight: normal;
+}
+
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.4rem;
+  cursor: pointer;
+  color: #888;
+  line-height: 1;
+}
+.modal-close:hover { color: #333; }
+
+.form-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.form-group label {
+  font-size: 0.78rem;
+  color: #666;
+  margin-bottom: 0.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.form-group input,
+.form-group textarea {
+  border: 1px solid #d8cfc6;
+  border-radius: 5px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #2c2c2c;
+  background: #faf8f5;
+  transition: border-color 0.15s;
+}
+.form-group input:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #4a3728;
+  background: #fff;
+}
+.form-group textarea { resize: vertical; min-height: 70px; }
+
+.modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  justify-content: flex-end;
+}
+
+.btn {
+  padding: 0.55rem 1.2rem;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s;
+}
+.btn-primary { background: #4a3728; color: #fff; }
+.btn-primary:hover { background: #6b5040; }
+.btn-danger { background: #c0392b; color: #fff; }
+.btn-danger:hover { background: #a93226; }
+.btn-ghost {
+  background: none;
+  border: 1px solid #d8cfc6;
+  color: #555;
+}
+.btn-ghost:hover { background: #f0ece6; }
+
+.event-detail-name {
+  font-size: 1rem;
+  margin-bottom: 0.4rem;
+}
+.event-detail-meta {
+  font-size: 0.85rem;
+  color: #777;
+  margin-bottom: 0.3rem;
+}
+.own-badge {
+  display: inline-block;
+  background: #7a9e6e;
+  color: #fff;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 20px;
+  margin-bottom: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.error-msg {
+  color: #c0392b;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+#toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #2c2c2c;
+  color: #fff;
+  padding: 0.7rem 1.4rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s;
+  pointer-events: none;
+  z-index: 200;
+}
+#toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+@media (max-width: 600px) {
+  .form-row { flex-direction: column; }
+  main { padding: 0 0.75rem; }
+  #calendar { padding: 0.75rem; }
+}

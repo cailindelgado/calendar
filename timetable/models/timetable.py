@@ -5,7 +5,8 @@ from . import db
 DESCRIPTION_LENGTH = 200
 NAME_LENGTH = 50
 FINGERPRINT_LENGTH = 255
-PHONE_NUM_LENGTH = 12
+PHONE_NUM_LENGTH = 20
+MISSIONARY_TYPE_LENGTH = 10
 
 
 class Fingerprints(db.Model):
@@ -21,7 +22,6 @@ class Fingerprints(db.Model):
         return {
             'id': self.id,
             'person_id': self.person_id,
-            'fingerprint': self.fingerprint,
             'created_at': self.created_at,
         }
     
@@ -52,7 +52,7 @@ class Person(db.Model):
         return f'<Person {self.id}>'
 
 class Events(db.Model):
-    ''' Event's: Event[id, person_id, description, time] '''
+    ''' Event's: Event[id, person_id, description, time, missionary_type] '''
 
     __tablename__ = 'events'
 
@@ -60,13 +60,19 @@ class Events(db.Model):
     person_id = db.Column(db.Integer, db.ForeignKey('person.id'), nullable=False) # FK
     description = db.Column(db.String(DESCRIPTION_LENGTH), nullable=True)
     time = db.Column(db.DateTime, nullable=False)
+    missionary_type = db.Column(db.String(MISSIONARY_TYPE_LENGTH), nullable=False)
+    person = db.relationship('Person', lazy='joined')
 
     def to_dict(self):
         return {
             'id': self.id,
             'person_id': self.person_id,
+            'f_name': self.person.f_name,
+            'l_name': self.person.l_name,
+            'phone_num': self.person.phone_num,
             'description': self.description,
-            'time': self.time,
+            'time': self.time.isoformat(),
+            'missionary_type': self.missionary_type,
         }
     
     def __repr__(self):
