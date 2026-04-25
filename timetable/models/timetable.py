@@ -16,7 +16,6 @@ class Person(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     phone_num = db.Column(db.String(PHONE_NUM_LENGTH), nullable=False)
     f_name = db.Column(db.String(NAME_LENGTH), nullable=False)
-    m_name = db.Column(db.String(NAME_LENGTH), nullable=True)
     l_name = db.Column(db.String(NAME_LENGTH), nullable=False)
 
     def to_dict(self):
@@ -43,7 +42,7 @@ class Fingerprints(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
-            'created_at': self.created_at,
+            'created_at': self.created_at.isoformat() if self.created_at else None,
         }
 
     def __repr__(self):

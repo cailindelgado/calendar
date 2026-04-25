@@ -2,11 +2,11 @@ from flask import Blueprint, jsonify, request
 from timetable.models import db
 from timetable.models.timetable import Events, Person, Fingerprints
 from datetime import datetime as dt, timezone as tz
+
 import re
 import uuid
+import phonenumbers as ph
 
-
-PHONE_RE = re.compile(r'^\+?[\d\s\-\(\)]{7,12}$')
 
 api = Blueprint('api', __name__, url_prefix='/calendar')
 
@@ -61,7 +61,7 @@ def create_event():
     if p_num is None or last_name is None or request.json.get('f_name') is None:
         return jsonify({'error': 'phone_num, f_name, and l_name are required'}), 400
 
-    if not PHONE_RE.match(p_num):
+    if validate_ph(p_num):
         return jsonify({'error': 'Invalid phone number'}), 400
 
     person = Person.query.filter_by(phone_num=p_num, l_name=last_name).first()
@@ -71,8 +71,6 @@ def create_event():
             f_name=request.json.get('f_name'),
             l_name=last_name,
         )
-        if 'm_name' in request.json:
-            person.m_name = request.json.get('m_name')
         db.session.add(person)
         db.session.flush()
 
@@ -192,3 +190,17 @@ def validate_time(time_str: str):
         return None, (jsonify({'error': 'Invalid time set'}), 400)
 
     return event_time, None
+
+def validate_ph(number: str):
+    """
+    Uses the phonenumber library to see if the given string is a 
+    valid phone number or not
+
+    Returns:
+    True: iff number is a valid phone number
+    False: Otherwise
+    """
+    try:
+        return ph.is_valid(ph.parse(number))
+    except ph.NumberParseException:
+        return False
