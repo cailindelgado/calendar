@@ -44,13 +44,9 @@ def create_event():
         return jsonify({'error': 'Content-Type must be application/json'}), 415
 
     fp_value = request.headers.get('X-Fingerprint-ID')
-    if not fp_value:
-        return jsonify({'error': 'X-Fingerprint-ID header is required'}), 400
-
-    try:
-        uuid.UUID(fp_value)
-    except ValueError:
-        return jsonify({'error': 'Invalid fingerprint format'}), 400
+    check = validate_fingerprint(None, fp_value) 
+    if check is not None:
+        return check
 
     event_time, err = validate_time(request.json.get('time'))
     if err is not None:
@@ -112,7 +108,7 @@ def update_event(id):
         return jsonify({'error': 'Event not found'}), 404
 
     out = validate_fingerprint(event, request.headers.get('X-Fingerprint-ID'))
-    if out[1] != 200:
+    if out is not None:
         return out
 
     time_str = request.json.get('time')
@@ -144,7 +140,7 @@ def delete_event(id):
         return jsonify({'error': 'Event not found'}), 404
 
     out = validate_fingerprint(event, request.headers.get('X-Fingerprint-ID'))
-    if out[1] != 200:
+    if out is not None:
         return out
 
     data = event.to_dict()
@@ -157,6 +153,15 @@ def delete_event(id):
 
 
 def validate_fingerprint(event: Events, fingerprint: str):
+    """ 
+    Validates that there is a fingerprint, that it is a valid uuid,
+    and iff event then fingerprint matches the event fingerprint
+
+    Returns:
+    - None: If every check passes successfully
+    - (tuple(json error message), error code): if any checks fail
+    """
+
     if fingerprint is None:
         return jsonify({'error': 'Missing fingerprint'}), 400
 
@@ -165,10 +170,10 @@ def validate_fingerprint(event: Events, fingerprint: str):
     except ValueError:
         return jsonify({'error': 'Invalid fingerprint format'}), 400
 
-    if event.fingerprint.fingerprint != fingerprint:
+    if event and event.fingerprint.fingerprint != fingerprint:
         return jsonify({'error': 'Unauthorised'}), 403
 
-    return jsonify(event.to_dict()), 200
+    return None
 
 
 def validate_time(time_str: str):
