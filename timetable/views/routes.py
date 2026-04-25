@@ -3,7 +3,6 @@ from timetable.models import db
 from timetable.models.timetable import Events, Person, Fingerprints
 from datetime import datetime as dt, timezone as tz
 
-import re
 import uuid
 import phonenumbers as ph
 
@@ -44,7 +43,7 @@ def create_event():
         return jsonify({'error': 'Content-Type must be application/json'}), 415
 
     fp_value = request.headers.get('X-Fingerprint-ID')
-    check = validate_fingerprint(None, fp_value) 
+    check = validate_fingerprint(None, fp_value)
     if check is not None:
         return check
 
@@ -61,7 +60,7 @@ def create_event():
     if p_num is None or last_name is None or request.json.get('f_name') is None:
         return jsonify({'error': 'phone_num, f_name, and l_name are required'}), 400
 
-    if validate_ph(p_num):
+    if not validate_ph(p_num):
         return jsonify({'error': 'Invalid phone number'}), 400
 
     person = Person.query.filter_by(phone_num=p_num, l_name=last_name).first()
@@ -201,6 +200,6 @@ def validate_ph(number: str):
     False: Otherwise
     """
     try:
-        return ph.is_valid(ph.parse(number))
+        return ph.is_valid_number(ph.parse(number, 'AU'))
     except ph.NumberParseException:
         return False

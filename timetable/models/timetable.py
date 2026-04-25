@@ -1,6 +1,9 @@
 from datetime import datetime as dt, timezone as tz
 from . import db
 
+from phonenumbers import format_number as fmt, parse as parse_ph, PhoneNumberFormat as phFormat
+
+
 # Constants
 DESCRIPTION_LENGTH = 200
 NAME_LENGTH = 50
@@ -10,7 +13,7 @@ MISSIONARY_TYPE_LENGTH = 10
 
 
 class Person(db.Model):
-    ''' Person: Person[id, phone_num, f_name, m_name, l_name] '''
+    ''' Person: Person[id, phone_num, f_name, l_name] '''
     __tablename__ = 'person'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -23,7 +26,6 @@ class Person(db.Model):
             'id': self.id,
             'phone_num': self.phone_num,
             'f_name': self.f_name,
-            'm_name': self.m_name,
             'l_name': self.l_name,
         }
 
@@ -68,7 +70,7 @@ class Events(db.Model):
             'person_id': self.person_id,
             'f_name': self.person.f_name,
             'l_name': self.person.l_name,
-            'phone_num': self.person.phone_num,
+            'phone_num': fmt(parse_ph(self.person.phone_num, 'AU'), phFormat.NATIONAL),
             'description': self.description,
             'time': self.time.isoformat(),
             'missionary_type': self.missionary_type,
