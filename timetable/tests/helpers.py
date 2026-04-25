@@ -4,7 +4,8 @@ PERSON = {
     'l_name': 'Smith',
 }
 
-FINGERPRINT = 'test-fingerprint-abc123'
+FINGERPRINT = '11111111-1111-1111-1111-111111111111'
+OTHER_FINGERPRINT = '22222222-2222-2222-2222-222222222222'
 
 
 def post_event(client, time='2099-01-01T12:00:00', fingerprint=FINGERPRINT, missionary_type='elders', **overrides):

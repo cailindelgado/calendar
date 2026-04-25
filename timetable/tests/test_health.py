@@ -1,4 +1,4 @@
-from .helpers import post_event, FINGERPRINT
+from .helpers import post_event, FINGERPRINT, OTHER_FINGERPRINT
 
 
 # ---------------------------------------------------------------------------
@@ -91,7 +91,7 @@ def test_delete_event_wrong_fingerprint(client):
     event_id = post_event(client).get_json()['id']
     r = client.delete(
         f'/calendar/events/{event_id}',
-        headers={'X-Fingerprint-ID': 'wrong-fingerprint'},
+        headers={'X-Fingerprint-ID': OTHER_FINGERPRINT},
     )
     assert r.status_code == 403
 
