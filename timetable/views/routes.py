@@ -56,8 +56,8 @@ def create_event():
         return jsonify({'error': 'missionary_type must be elders or sisters'}), 400
 
     p_num = request.json.get('phone_num')
-    last_name = request.json.get('l_name')
-    if p_num is None or last_name is None or request.json.get('f_name') is None:
+    last_name, f_name = request.json.get('l_name'), request.json.get('f_name')
+    if p_num is None or last_name is None or f_name is None:
         return jsonify({'error': 'phone_num, f_name, and l_name are required'}), 400
 
     if not validate_ph(p_num):
@@ -67,11 +67,15 @@ def create_event():
     if person is None:
         person = Person(
             phone_num=p_num,
-            f_name=request.json.get('f_name'),
+            f_name=f_name,
             l_name=last_name,
         )
         db.session.add(person)
         db.session.flush()
+    else:
+        person.phone_num = p_num
+        person.f_name = f_name
+        person.l_name = last_name
 
     fp = Fingerprints.query.filter_by(fingerprint=fp_value).first()
     if fp is None:
@@ -108,12 +112,10 @@ def update_event(id):
     if out is not None:
         return out
 
-    time_str = request.json.get('time')
-    if time_str is not None:
-        event_time, err = validate_time(time_str)
-        if err is not None:
-            return err
-        event.time = event_time
+    event_time, err = validate_time(request.json.get('time'))
+    if err is not None:
+        return err
+    event.time = event_time
 
     missionary_type = request.json.get('missionary_type')
     if missionary_type is not None:
@@ -121,6 +123,8 @@ def update_event(id):
             return jsonify({'error': 'missionary_type must be elders or sisters'}), 400
 
         event.missionary_type = missionary_type
+
+    # NOTE: implement update for persons event
 
     if 'description' in request.json:
         event.description = request.json.get('description')

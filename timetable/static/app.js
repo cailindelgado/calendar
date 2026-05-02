@@ -17,6 +17,7 @@ function getFingerprint() {
 let calendar;
 let pendingDate = null;   // ISO date string clicked for signup
 let activeType = 'elders';
+let editingEventId = null;
 
 function setType(type) {
   activeType = type;
@@ -41,6 +42,10 @@ function closeModal(id) {
   if (id === 'signupModal') {
     document.getElementById('signupForm').reset();
     document.getElementById('signupError').style.display = 'none';
+  }
+  if (id === 'editModal') {
+    document.getElementById('editForm').reset();
+    document.getElementById('editError').style.display = 'none';
     editingEventId = null;
   }
 }
@@ -90,6 +95,22 @@ async function createEvent(data) {
   return event;
 }
 
+async function updateEvent(id, data) {
+  const res = await fetch(`${API_BASE}/events/${id}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Fingerprint-ID': getFingerprint(),
+    },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Failed to update event');
+  }
+  return res.json();
+}
+
 async function deleteEvent(id) {
   const res = await fetch(`${API_BASE}/events/${id}`, {
     method: 'DELETE',
@@ -135,8 +156,6 @@ async function submitSignup(e) {
     time: pendingDate + 'T12:00:00Z',
     missionary_type: activeType,
   };
-  const mName = document.getElementById('m_name').value.trim();
-  if (mName) payload.m_name = mName;
   const desc = document.getElementById('description').value.trim();
   if (desc) payload.description = desc;
 
@@ -144,6 +163,43 @@ async function submitSignup(e) {
     await createEvent(payload);
     closeModal('signupModal');
     showToast('You\'re signed up — thank you!');
+    calendar.refetchEvents();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  }
+}
+
+// ---- Edit signup ----
+function openEditModal(props, id) {
+  editingEventId = Number(id);
+  // The event time is an ISO datetime; we want YYYY-MM-DD for the date input.
+  const isoDate = new Date(props.time).toISOString().slice(0, 10);
+  document.getElementById('edit_date').value = isoDate;
+  document.getElementById('edit_missionary_type').value = props.missionary_type;
+  document.getElementById('edit_description').value = props.description || '';
+  document.getElementById('editPersonLabel').textContent = `${props.f_name} ${props.l_name}`;
+  document.getElementById('editError').style.display = 'none';
+  openModal('editModal');
+}
+
+async function submitEdit(e) {
+  e.preventDefault();
+  const errEl = document.getElementById('editError');
+  errEl.style.display = 'none';
+
+  if (editingEventId === null) return;
+
+  const payload = {
+    time: document.getElementById('edit_date').value + 'T12:00:00Z',
+    missionary_type: document.getElementById('edit_missionary_type').value,
+    description: document.getElementById('edit_description').value.trim(),
+  };
+
+  try {
+    await updateEvent(editingEventId, payload);
+    closeModal('editModal');
+    showToast('Signup updated.');
     calendar.refetchEvents();
   } catch (err) {
     errEl.textContent = err.message;
@@ -201,6 +257,15 @@ function showDetail(info) {
       }
     };
     actions.appendChild(delBtn);
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn btn-primary';
+    editBtn.textContent = 'Edit signup';
+    editBtn.onclick = () => {
+      closeModal('detailModal');
+      openEditModal(props, ev.id);
+    };
+    actions.appendChild(editBtn);
   }
 
   const closeBtn = document.createElement('button');

@@ -227,6 +227,54 @@ main {
   transform: translateX(-50%) translateY(0);
 }
 
+.form-group select {
+  border: 1px solid #d8cfc6;
+  border-radius: 5px;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: #2c2c2c;
+  background: #faf8f5;
+  cursor: pointer;
+}
+.form-group select:focus {
+  outline: none;
+  border-color: #4a3728;
+  background: #fff;
+}
+
+.info-body p {
+  font-size: 0.9rem;
+  color: #555;
+  line-height: 1.5;
+}
+
+footer {
+  margin-top: 2rem;
+  padding: 1.25rem 2rem;
+  background: #4a3728;
+  color: #f5e6d3;
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.footer-btn {
+  background: none;
+  border: 1px solid #c9b49a;
+  color: #f5e6d3;
+  padding: 0.5rem 1.1rem;
+  border-radius: 5px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.footer-btn:hover {
+  background: #f5e6d3;
+  color: #4a3728;
+}
+
 @media (max-width: 600px) {
   .form-row { flex-direction: column; }
   main { padding: 0 0.75rem; }

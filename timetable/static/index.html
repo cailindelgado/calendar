@@ -39,10 +39,6 @@
           <input type="text" id="f_name" required />
         </div>
         <div class="form-group">
-          <label>Middle name</label>
-          <input type="text" id="m_name" />
-        </div>
-        <div class="form-group">
           <label>Last name *</label>
           <input type="text" id="l_name" required />
         </div>
@@ -72,6 +68,67 @@
     <div class="modal-actions" id="detailActions"></div>
   </div>
 </div>
+
+<!-- Edit event modal -->
+<div class="modal-backdrop" id="editModal">
+  <div class="modal">
+    <h2>Edit signup</h2>
+    <p id="editPersonLabel" class="event-detail-meta" style="margin-bottom:1rem"></p>
+    <form id="editForm" onsubmit="submitEdit(event)">
+      <div class="form-group" style="margin-bottom:0.75rem">
+        <label>Date *</label>
+        <input type="date" id="edit_date" required />
+      </div>
+      <div class="form-group" style="margin-bottom:0.75rem">
+        <label>Missionaries *</label>
+        <select id="edit_missionary_type" required>
+          <option value="elders">Elders</option>
+          <option value="sisters">Sisters</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Notes for the missionaries (Optional)</label>
+        <textarea id="edit_description" maxlength="200"></textarea>
+      </div>
+      <div id="editError" class="error-msg" style="display:none"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('editModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Contact us modal -->
+<div class="modal-backdrop" id="contactModal">
+  <div class="modal">
+    <h2>Contact us</h2>
+    <div class="info-body">
+      <p>Contact details for the Brisbane Ward meal coordinator will be listed here.</p>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeModal('contactModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Privacy statement modal -->
+<div class="modal-backdrop" id="privacyModal">
+  <div class="modal">
+    <h2>Privacy statement</h2>
+    <div class="info-body">
+      <p>The privacy statement for this site will be listed here.</p>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-ghost" onclick="closeModal('privacyModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <button type="button" class="footer-btn" onclick="openModal('contactModal')">Contact us</button>
+  <button type="button" class="footer-btn" onclick="openModal('privacyModal')">Privacy statement</button>
+</footer>
 
 <div id="toast"></div>
 
