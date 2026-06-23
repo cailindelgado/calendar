@@ -5,4 +5,6 @@ __pycache__/
 CLAUDE.md
 REVIEW.md
 
+.zed
+
 instance/*
