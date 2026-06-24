@@ -25,11 +25,11 @@ def get_events():
         query = query.filter_by(missionary_type=type_filter)
 
     events = query.all()
-    return jsonify([e.to_dict() for e in events])
+    return jsonify([event.to_dict() for event in events])
 
 
 @api.route("/events/<int:id>", methods=["GET"])
-def get_event(id):
+def get_event(id: int):
     event = db.session.get(Events, id)
 
     if event is None:
@@ -40,7 +40,8 @@ def get_event(id):
 
 @api.route("/events", methods=["POST"])
 def create_event():
-    if not request.is_json:
+    data = request.get_json()
+    if data is None:
         return jsonify({"error": "Content-Type must be application/json"}), 415
 
     fp_value = request.headers.get("X-Fingerprint-ID")
@@ -48,16 +49,16 @@ def create_event():
     if check is not None:
         return check
 
-    event_time, err = validate_time(request.json.get("time"))
+    event_time, err = validate_time(data.get("time"))
     if err is not None:
         return err
 
-    missionary_type = request.json.get("missionary_type")
+    missionary_type = data.get("missionary_type")
     if missionary_type not in ("elders", "sisters"):
         return jsonify({"error": "missionary_type must be elders or sisters"}), 400
 
-    p_num = request.json.get("phone_num")
-    last_name, f_name = request.json.get("l_name"), request.json.get("f_name")
+    p_num = data.get("phone_num")
+    last_name, f_name = data.get("l_name"), data.get("f_name")
     if p_num is None or last_name is None or f_name is None:
         return jsonify({"error": "phone_num, f_name, and l_name are required"}), 400
 
@@ -91,8 +92,8 @@ def create_event():
         missionary_type=missionary_type,
     )
 
-    if "description" in request.json:
-        event.description = request.json.get("description")
+    if "description" in data:
+        event.description = data.get("description")
 
     db.session.add(event)
     db.session.commit()
@@ -101,8 +102,9 @@ def create_event():
 
 
 @api.route("/events/<int:id>", methods=["PUT"])
-def update_event(id):
-    if not request.is_json:
+def update_event(id: int):
+    data = request.json
+    if data is None:
         return jsonify({"error": "Content-Type must be application/json"}), 415
 
     event = db.session.get(Events, id)
@@ -113,12 +115,12 @@ def update_event(id):
     if out is not None:
         return out
 
-    event_time, err = validate_time(request.json.get("time"))
+    event_time, err = validate_time(data.get("time"))
     if err is not None:
         return err
-    event.time = event_time
+    event.time = event_time  # type: ignore[reportAttributeAccessIssue]
 
-    missionary_type = request.json.get("missionary_type")
+    missionary_type = data.get("missionary_type")
     if missionary_type is not None:
         if missionary_type not in ("elders", "sisters"):
             return jsonify({"error": "missionary_type must be elders or sisters"}), 400
@@ -127,8 +129,8 @@ def update_event(id):
 
     # NOTE: implement update for persons event
 
-    if "description" in request.json:
-        event.description = request.json.get("description")
+    if "description" in data:
+        event.description = data.get("description")
 
     db.session.commit()
 
@@ -136,7 +138,7 @@ def update_event(id):
 
 
 @api.route("/events/<int:id>", methods=["DELETE"])
-def delete_event(id):
+def delete_event(id: int):
     event = db.session.get(Events, id)
     if event is None:
         return jsonify({"error": "Event not found"}), 404
@@ -154,7 +156,7 @@ def delete_event(id):
 # NOTE: Helper functions
 
 
-def validate_fingerprint(event: Events, fingerprint: str):
+def validate_fingerprint(event: Events | None, fingerprint: str | None):
     """
     Validates that there is a fingerprint, that it is a valid uuid,
     and iff event then fingerprint matches the event fingerprint
@@ -168,7 +170,7 @@ def validate_fingerprint(event: Events, fingerprint: str):
         return jsonify({"error": "Missing fingerprint"}), 400
 
     try:
-        uuid.UUID(fingerprint)
+        _ = uuid.UUID(fingerprint)
     except ValueError:
         return jsonify({"error": "Invalid fingerprint format"}), 400
 
@@ -178,7 +180,15 @@ def validate_fingerprint(event: Events, fingerprint: str):
     return None
 
 
-def validate_time(time_str: str):
+def validate_time(time_str: str | None):
+    """
+    Validates the time string and returns a datetime object if valid,
+    or an error message if invalid.
+
+    Returns:
+    - datetime object: If the time string is valid
+    - (tuple(json error message), error code): If the time string is invalid
+    """
     if time_str is None:
         return None, (jsonify({"error": "time is required"}), 400)
 

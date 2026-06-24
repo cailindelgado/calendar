@@ -26,8 +26,9 @@ class Person(db.Model):
     phone_num: Mapped[str] = mapped_column(String(PHONE_NUM_LENGTH))
     f_name: Mapped[str] = mapped_column(String(NAME_LENGTH))
     l_name: Mapped[str] = mapped_column(String(NAME_LENGTH))
+    events: Mapped[list["Events"]] = relationship(back_populates="person")
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, int | str]:
         return {
             "id": self.id,
             "phone_num": self.phone_num,
@@ -35,7 +36,7 @@ class Person(db.Model):
             "l_name": self.l_name,
         }
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Person {self.id}>"
 
 
@@ -48,13 +49,13 @@ class Fingerprints(db.Model):
     fingerprint: Mapped[str] = mapped_column(String(FINGERPRINT_LENGTH), unique=True)
     created_at: Mapped[dt] = mapped_column(DateTime, default=lambda: dt.now(tz.utc))
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, int | str | None]:
         return {
             "id": self.id,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Fingerprints {self.id}>"
 
 
@@ -72,7 +73,7 @@ class Events(db.Model):
     person: Mapped[Person] = relationship(lazy="joined")
     fingerprint: Mapped[Fingerprints] = relationship(lazy="joined")
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, int | str | None]:
         return {
             "id": self.id,
             "person_id": self.person_id,
@@ -84,5 +85,5 @@ class Events(db.Model):
             "missionary_type": self.missionary_type,
         }
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Events {self.id}>"

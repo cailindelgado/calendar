@@ -8,3 +8,9 @@ REVIEW.md
 .zed
 
 instance/*
+
+pyrightconfig.json
+schema.png
+
+uv.lock
+.venv/

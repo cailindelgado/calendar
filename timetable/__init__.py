@@ -1,5 +1,4 @@
 from flask import Flask, send_from_directory
-from flask_sqlalchemy import SQLAlchemy
 
 def create_app(test_config=None):
     app = Flask(__name__)
@@ -24,6 +23,6 @@ def create_app(test_config=None):
 
     @app.route('/')
     def index():
-        return send_from_directory(app.static_folder, 'index.html')
+        return send_from_directory(app.static_folder, 'index.html') # type: ignore
 
     return app
