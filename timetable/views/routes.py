@@ -4,6 +4,7 @@ from datetime import timezone as tz
 
 import phonenumbers as ph
 from flask import Blueprint, jsonify, request
+from sqlalchemy import select
 
 from timetable.models import db
 from timetable.models.timetable import Events, Fingerprints, Person
@@ -19,12 +20,12 @@ def health():
 @api.route("/events", methods=["GET"])
 def get_events():
     type_filter = request.args.get("type")
-    query = Events.query
+    query = select(Events)
 
     if type_filter in ("elders", "sisters"):
-        query = query.filter_by(missionary_type=type_filter)
+        query = query.where(Events.missionary_type == type_filter)
 
-    events = query.all()
+    events = db.session.execute(query).scalars().all()
     return jsonify([event.to_dict() for event in events])
 
 
@@ -62,10 +63,17 @@ def create_event():
     if p_num is None or last_name is None or f_name is None:
         return jsonify({"error": "phone_num, f_name, and l_name are required"}), 400
 
-    if not validate_ph(p_num):
+    p_num = validate_and_normalise_ph(p_num)
+    if p_num is None:
         return jsonify({"error": "Invalid phone number"}), 400
 
-    person = Person.query.filter_by(phone_num=p_num, l_name=last_name).first()
+    # TODO: Normalise the phone numbers to be uniform format
+    if p_num[0] == "+":  # Convert all +614.. phone nums into 04.. phone nums
+        p_num = f"0{p_num[3:]}"
+
+    person = db.session.execute(
+        select(Person).filter_by(phone_num=p_num, l_name=last_name)
+    ).first()
     if person is None:
         person = Person(
             phone_num=p_num,
@@ -79,7 +87,9 @@ def create_event():
         person.f_name = f_name
         person.l_name = last_name
 
-    fp = Fingerprints.query.filter_by(fingerprint=fp_value).first()
+    fp = db.session.execute(
+        select(Fingerprints).filter_by(fingerprint=fp_value)
+    ).first()
     if fp is None:
         fp = Fingerprints(fingerprint=fp_value)
         db.session.add(fp)
@@ -103,7 +113,7 @@ def create_event():
 
 @api.route("/events/<int:id>", methods=["PUT"])
 def update_event(id: int):
-    data = request.json
+    data = request.get_json()
     if data is None:
         return jsonify({"error": "Content-Type must be application/json"}), 415
 
@@ -206,16 +216,23 @@ def validate_time(time_str: str | None):
     return event_time, None
 
 
-def validate_ph(number: str):
+def validate_and_normalise_ph(number: str) -> str | None:
     """
     Uses the phonenumber library to see if the given string is a
-    valid phone number or not
+    valid phone number or not, then it returns a normalised phone
+    number
 
     Returns:
-    True: iff number is a valid phone number
-    False: Otherwise
+        string: If the phone number is valid and can be parsed
+        None: Otherwise
     """
     try:
-        return ph.is_valid_number(ph.parse(number, "AU"))
+        num = ph.parse(number, "AU")
+
+        if not ph.is_valid_number(num):
+            raise ph.NumberParseException("Invalid phone number")
+
+        return ph.format_number(num, ph.PhoneNumberFormat.E164)
+
     except ph.NumberParseException:
-        return False
+        return None
