@@ -2,10 +2,9 @@
 const API_BASE = "/calendar";
 
 // ---- Fingerprint ----
-// A UUID stored in localStorage acts as the user's identity token.
-// The server validates mutations against it.
-function getFingerprint() {
-    return localStorage.getItem("meal_roster_fp");
+// A 32 bit hex stored in localStorage acts as the user's identity token.
+function getFingerprint(id) {
+    return localStorage.getItem(`meal_roster_fp_${id}`);
 }
 
 // ---- State ----
@@ -56,9 +55,9 @@ document.querySelectorAll(".modal-backdrop").forEach((el) => {
 
 // ---- API calls ----
 async function fetchEvents() {
-    const res = await fetch(`${API_BASE}/events?type=${activeType}`);
-    if (!res.ok) throw new Error("Failed to load events");
-    const events = await res.json();
+    const result = await fetch(`${API_BASE}/events?type=${activeType}`);
+    if (!result.ok) throw new Error("Failed to load events");
+    const events = await result.json();
 
     return events.map((ev) => ({
         id: ev.id,
@@ -74,47 +73,45 @@ async function fetchEvents() {
 }
 
 async function createEvent(data) {
-    const res = await fetch(`${API_BASE}/events`, {
+    const result = await fetch(`${API_BASE}/events`, {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            "X-Fingerprint-ID": getFingerprint(),
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
     });
-    if (!res.ok) {
-        const err = await res.json();
+    if (!result.ok) {
+        const err = await result.json();
         throw new Error(err.error || "Failed to create event");
     }
-    const event = await res.json();
+    const event = await result.json();
     // Remember which events this device created
+    localStorage.setItem(`meal_roster_fp_${event.id}`, event.fingerprint);
     markOwnEvent(event.id);
     return event;
 }
 
 async function updateEvent(id, data) {
-    const res = await fetch(`${API_BASE}/events/${id}`, {
+    const result = await fetch(`${API_BASE}/events/${id}`, {
         method: "PUT",
         headers: {
             "Content-Type": "application/json",
-            "X-Fingerprint-ID": getFingerprint(),
+            "X-Fingerprint-ID": getFingerprint(id),
         },
         body: JSON.stringify(data),
     });
-    if (!res.ok) {
-        const err = await res.json();
+    if (!result.ok) {
+        const err = await result.json();
         throw new Error(err.error || "Failed to update event");
     }
-    return res.json();
+    return result.json();
 }
 
 async function deleteEvent(id) {
-    const res = await fetch(`${API_BASE}/events/${id}`, {
+    const result = await fetch(`${API_BASE}/events/${id}`, {
         method: "DELETE",
-        headers: { "X-Fingerprint-ID": getFingerprint() },
+        headers: { "X-Fingerprint-ID": getFingerprint(id) },
     });
-    if (!res.ok) {
-        const err = await res.json();
+    if (!result.ok) {
+        const err = await result.json();
         throw new Error(err.error || "Failed to delete event");
     }
     unmarkOwnEvent(id);
@@ -133,6 +130,7 @@ function markOwnEvent(id) {
 }
 function unmarkOwnEvent(id) {
     const owned = ownedEvents().filter((x) => x !== Number(id));
+    localStorage.removeItem(`meal_roster_fp_${id}`);
     localStorage.setItem("meal_roster_owned", JSON.stringify(owned));
 }
 function isOwnEvent(id) {

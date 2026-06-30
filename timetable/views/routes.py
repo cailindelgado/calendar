@@ -49,6 +49,9 @@ def create_event():
         return jsonify({"error": "Content-Type must be application/json"}), 415
 
     fp_value = thex(TOKEN_HEX)
+    fp = Fingerprints(fingerprint=fp_value)
+    db.session.add(fp)
+    db.session.flush()
 
     event_time, err = validate_time(data.get("time"))
     if err is not None:
@@ -84,16 +87,6 @@ def create_event():
         person.phone_num = p_num
         person.f_name = f_name
         person.l_name = last_name
-
-    fp = (
-        db.session.execute(select(Fingerprints).filter_by(fingerprint=fp_value))
-        .scalars()
-        .first()
-    )
-    if fp is None:
-        fp = Fingerprints(fingerprint=fp_value)
-        db.session.add(fp)
-        db.session.flush()
 
     event = Events(
         person_id=person.id,
