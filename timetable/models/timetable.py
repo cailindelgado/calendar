@@ -70,6 +70,7 @@ class Events(db.Model):
     description: Mapped[str | None] = mapped_column(String(DESCRIPTION_LENGTH))
     time: Mapped[dt] = mapped_column(DateTime)
     missionary_type: Mapped[str] = mapped_column(String(MISSIONARY_TYPE_LENGTH))
+
     person: Mapped[Person] = relationship(lazy="joined")
     fingerprint: Mapped[Fingerprints] = relationship(lazy="joined")
 

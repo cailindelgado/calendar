@@ -1,6 +1,6 @@
-import uuid
 from datetime import datetime as dt
 from datetime import timezone as tz
+from secrets import token_hex as thex
 
 import phonenumbers as ph
 from flask import Blueprint, jsonify, request
@@ -10,6 +10,9 @@ from timetable.models import db
 from timetable.models.timetable import Events, Fingerprints, Person
 
 api = Blueprint("api", __name__, url_prefix="/calendar")
+
+
+TOKEN_HEX = 32
 
 
 @api.route("/health")
@@ -45,10 +48,7 @@ def create_event():
     if data is None:
         return jsonify({"error": "Content-Type must be application/json"}), 415
 
-    fp_value = request.headers.get("X-Fingerprint-ID")
-    check = validate_fingerprint(None, fp_value)
-    if check is not None:
-        return check
+    fp_value = thex(TOKEN_HEX)
 
     event_time, err = validate_time(data.get("time"))
     if err is not None:
@@ -67,13 +67,11 @@ def create_event():
     if p_num is None:
         return jsonify({"error": "Invalid phone number"}), 400
 
-    # TODO: Normalise the phone numbers to be uniform format
-    if p_num[0] == "+":  # Convert all +614.. phone nums into 04.. phone nums
-        p_num = f"0{p_num[3:]}"
-
-    person = db.session.execute(
-        select(Person).filter_by(phone_num=p_num, l_name=last_name)
-    ).first()
+    person = (
+        db.session.execute(select(Person).filter_by(phone_num=p_num, l_name=last_name))
+        .scalars()
+        .first()
+    )
     if person is None:
         person = Person(
             phone_num=p_num,
@@ -87,9 +85,11 @@ def create_event():
         person.f_name = f_name
         person.l_name = last_name
 
-    fp = db.session.execute(
-        select(Fingerprints).filter_by(fingerprint=fp_value)
-    ).first()
+    fp = (
+        db.session.execute(select(Fingerprints).filter_by(fingerprint=fp_value))
+        .scalars()
+        .first()
+    )
     if fp is None:
         fp = Fingerprints(fingerprint=fp_value)
         db.session.add(fp)
@@ -108,7 +108,7 @@ def create_event():
     db.session.add(event)
     db.session.commit()
 
-    return jsonify(event.to_dict()), 201
+    return jsonify({**event.to_dict(), "fingerprint": fp_value}), 201
 
 
 @api.route("/events/<int:id>", methods=["PUT"])
@@ -121,9 +121,9 @@ def update_event(id: int):
     if event is None:
         return jsonify({"error": "Event not found"}), 404
 
-    out = validate_fingerprint(event, request.headers.get("X-Fingerprint-ID"))
-    if out is not None:
-        return out
+    fingerprint = request.headers.get("X-Fingerprint-ID")
+    if event.fingerprint.fingerprint != fingerprint:
+        return jsonify({"error": "Unauthorised"}), 403
 
     event_time, err = validate_time(data.get("time"))
     if err is not None:
@@ -136,8 +136,6 @@ def update_event(id: int):
             return jsonify({"error": "missionary_type must be elders or sisters"}), 400
 
         event.missionary_type = missionary_type
-
-    # NOTE: implement update for persons event
 
     if "description" in data:
         event.description = data.get("description")
@@ -153,9 +151,9 @@ def delete_event(id: int):
     if event is None:
         return jsonify({"error": "Event not found"}), 404
 
-    out = validate_fingerprint(event, request.headers.get("X-Fingerprint-ID"))
-    if out is not None:
-        return out
+    fingerprint = request.headers.get("X-Fingerprint-ID")
+    if event.fingerprint.fingerprint != fingerprint:
+        return jsonify({"error": "Unauthorised"}), 403
 
     data = event.to_dict()
     db.session.delete(event)
@@ -164,30 +162,6 @@ def delete_event(id: int):
 
 
 # NOTE: Helper functions
-
-
-def validate_fingerprint(event: Events | None, fingerprint: str | None):
-    """
-    Validates that there is a fingerprint, that it is a valid uuid,
-    and iff event then fingerprint matches the event fingerprint
-
-    Returns:
-    - None: If every check passes successfully
-    - (tuple(json error message), error code): if any checks fail
-    """
-
-    if fingerprint is None:
-        return jsonify({"error": "Missing fingerprint"}), 400
-
-    try:
-        _ = uuid.UUID(fingerprint)
-    except ValueError:
-        return jsonify({"error": "Invalid fingerprint format"}), 400
-
-    if event and event.fingerprint.fingerprint != fingerprint:
-        return jsonify({"error": "Unauthorised"}), 403
-
-    return None
 
 
 def validate_time(time_str: str | None):
@@ -227,10 +201,10 @@ def validate_and_normalise_ph(number: str) -> str | None:
         None: Otherwise
     """
     try:
-        num = ph.parse(number, "AU")
+        num = ph.parse(number, default_region="AU")
 
         if not ph.is_valid_number(num):
-            raise ph.NumberParseException("Invalid phone number")
+            return None
 
         return ph.format_number(num, ph.PhoneNumberFormat.E164)
 
