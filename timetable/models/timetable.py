@@ -17,6 +17,52 @@ PHONE_NUM_LENGTH = 20
 MISSIONARY_TYPE_LENGTH = 10
 
 
+class Missionaries(db.Model):
+    """Missionaries: Missionaries[id, name, allergies, group]"""
+
+    __tablename__ = "missionaries"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(NAME_LENGTH))
+    allergies: Mapped[str | None] = mapped_column(String(DESCRIPTION_LENGTH))
+    group_id: Mapped[int] = mapped_column(ForeignKey("groups.id"))
+
+    group: Mapped["Groups"] = relationship(back_populates="missionaries")
+
+    def to_dict(self) -> dict[str, int | str | None]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "allergies": self.allergies if self.allergies else None,
+            "group_id": self.group_id,
+        }
+
+    def __repr__(self) -> str:
+        return f"<Missionaries {self.id}>"
+
+
+class Groups(db.Model):
+    """Groups: Groups[id, type, ward]"""
+
+    __tablename__ = "groups"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    missionary_type: Mapped[str] = mapped_column(String(MISSIONARY_TYPE_LENGTH))
+    ward: Mapped[str] = mapped_column(String(NAME_LENGTH))
+
+    missionaries: Mapped[list[Missionaries]] = relationship(back_populates="group")
+
+    def to_dict(self) -> dict[str, int | str]:
+        return {
+            "id": self.id,
+            "type": self.missionary_type,
+            "ward": self.ward,
+        }
+
+    def __repr__(self) -> str:
+        return f"<Groups {self.id}>"
+
+
 class Person(db.Model):
     """Person: Person[id, phone_num, f_name, l_name]"""
 
@@ -60,7 +106,7 @@ class Fingerprints(db.Model):
 
 
 class Events(db.Model):
-    """Event: Events[id, person_id, fingerprint_id, description, time, missionary_type]"""
+    """Event: Events[id, person_id, fingerprint_id, description, time, missionary_group]"""
 
     __tablename__ = "events"
 
@@ -69,10 +115,11 @@ class Events(db.Model):
     fingerprint_id: Mapped[int] = mapped_column(ForeignKey("fingerprints.id"))
     description: Mapped[str | None] = mapped_column(String(DESCRIPTION_LENGTH))
     time: Mapped[dt] = mapped_column(DateTime)
-    missionary_type: Mapped[str] = mapped_column(String(MISSIONARY_TYPE_LENGTH))
+    missionary_group: Mapped[int] = mapped_column(ForeignKey("groups.id"))
 
     person: Mapped[Person] = relationship(lazy="joined")
     fingerprint: Mapped[Fingerprints] = relationship(lazy="joined")
+    group: Mapped[Groups] = relationship(lazy="joined")
 
     def to_dict(self) -> dict[str, int | str | None]:
         return {
@@ -83,7 +130,7 @@ class Events(db.Model):
             "phone_num": fmt(parse_ph(self.person.phone_num, "AU"), phFormat.NATIONAL),
             "description": self.description,
             "time": self.time.isoformat(),
-            "missionary_type": self.missionary_type,
+            "missionary_group": self.missionary_group,
         }
 
     def __repr__(self) -> str:
