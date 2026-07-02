@@ -32,22 +32,23 @@ def health():
 @api.route("/missionaries", methods=["GET"])
 def get_missionaries():
     try:
-        data = request.get_json()
         query = select(Missionaries)
 
-        name = data.get("name")
+        name = request.args.get("name")
         if name is not None:
             query = query.where(Missionaries.name.ilike(f"%{name}%"))
 
-        allergies = data.get("allergies")  # probably represent this with boolean
+        allergies = request.args.get(
+            "allergies"
+        )  # probably represent this with boolean
         if allergies is not None:
             query = query.where(Missionaries.allergies.is_not(None))
 
-        group_id = data.get("group")
+        group_id = request.args.get("group")
         if group_id is not None:
-            query = query.where(Missionaries.group == group_id)
+            query = query.where(Missionaries.group_id == group_id)
 
-        missionaries = db.session.execute(query)
+        missionaries = db.session.execute(query).scalars().all()
         return jsonify([missionary.to_dict() for missionary in missionaries])
 
     except Exception as e:
@@ -69,10 +70,12 @@ def get_missionary(id):
         return jsonify({"error": str(e)}), 500
 
 
-@api.route("/missionaries/", methods=["POST"])
+@api.route("/missionaries", methods=["POST"])
 def create_missionary():
     try:
         data = request.get_json()
+        if data is None:
+            return jsonify({"error": "Missing data"}), 400
 
         name = data.get("name")
         if name is None:
@@ -82,6 +85,10 @@ def create_missionary():
         group = data.get("missionary_group")
         if group is None:
             return jsonify({"error": "Missionary group is required"}), 400
+
+        check_existing_group = db.session.get(Groups, group)
+        if check_existing_group is None:
+            return jsonify({"error": "Missionary group not found"}), 404
 
         missionary = Missionaries(name=name, allergies=allergies, group_id=group)
         db.session.add(missionary)
@@ -98,6 +105,8 @@ def create_missionary():
 def update_missionary(id):
     try:
         data = request.get_json()
+        if data is None:
+            return jsonify({"error": "Missing data"}), 400
 
         name = data.get("name")
         if name is None:
@@ -108,6 +117,10 @@ def update_missionary(id):
         if group is None:
             return jsonify({"error": "Missionary group is required"}), 400
 
+        check_existing_group = db.session.get(Groups, group)
+        if check_existing_group is None:
+            return jsonify({"error": "Missionary group not found"}), 404
+
         missionary = db.session.execute(
             select(Missionaries).where(Missionaries.id == id)
         ).scalar_one_or_none()
@@ -116,7 +129,7 @@ def update_missionary(id):
 
         missionary.name = name
         missionary.allergies = allergies
-        missionary.group = group
+        missionary.group_id = group
         db.session.commit()
 
         return jsonify({"message": "Missionary updated successfully"}), 200
@@ -188,6 +201,12 @@ def get_group(group_id):
 @api.route("/group/<int:group_id>/events", methods=["GET"])
 def get_group_events(group_id):
     try:
+        existing_group = db.session.execute(
+            select(Groups).where(Groups.id == group_id)
+        ).scalar_one_or_none()
+        if existing_group is None:
+            return jsonify({"error": "Group not found"}), 404
+
         query = select(Events).where(Events.missionary_group == group_id)
         events = db.session.execute(query).scalars().all()
         return jsonify([event.to_dict() for event in events])
@@ -292,12 +311,18 @@ def get_events():
 
         start_str = request.args.get("start")
         if start_str is not None:
-            start = dt.fromisoformat(start_str).astimezone(tz.utc)
+            start, err = validate_time(start_str)
+            if err:
+                return err
+
             query = query.where(Events.time >= start)
 
         end_str = request.args.get("end")
         if end_str is not None:
-            end = dt.fromisoformat(end_str).astimezone(tz.utc)
+            end, err = validate_time(end_str)
+            if err:
+                return err
+
             query = query.where(Events.time <= end)
 
         ward = request.args.get("ward")
@@ -328,16 +353,23 @@ def create_event():
     try:
         data = request.get_json()
         if data is None:
-            return jsonify({"error": "Content-Type must be application/json"}), 415
+            return jsonify({"error": "Content-Type must be application/json"}), 400
 
         fp_value = token_hex(TOKEN_HEX)
         fp = Fingerprints(fingerprint=fp_value)
         db.session.add(fp)
         db.session.flush()
 
-        event_time, err = validate_time(data.get("time"))
+        time_str = data.get("time")
+        if time_str is None:
+            return jsonify({"error": "time is required"}), 400
+
+        time, err = validate_time(time_str)
         if err is not None:
             return err
+
+        if time is not None and time < dt.now(tz.utc):
+            return jsonify({"error": "Invalid time set"}), 400
 
         group_id = data.get("group_id")
         if group_id is None:
@@ -383,7 +415,7 @@ def create_event():
         event = Events(
             person_id=person.id,
             fingerprint_id=fp.id,
-            time=event_time,
+            time=time,
             missionary_group=group_id,
         )
 
@@ -404,7 +436,7 @@ def update_event(id: int):
     try:
         data = request.get_json()
         if data is None:
-            return jsonify({"error": "Content-Type must be application/json"}), 415
+            return jsonify({"error": "Content-Type must be application/json"}), 400
 
         event = db.session.get(Events, id)
         if event is None:
@@ -414,10 +446,14 @@ def update_event(id: int):
         if event.fingerprint.fingerprint != fingerprint:
             return jsonify({"error": "Unauthorised"}), 403
 
-        event_time, err = validate_time(data.get("time"))
-        if err is not None:
-            return err
-        event.time = event_time  # type: ignore[reportAttributeAccessIssue]
+        time_str = data.get("time")
+        if time_str is not None:
+            time, err = validate_time(data.get("time"))
+            if err is not None:
+                return err
+            elif time is not None and time < dt.now(tz.utc):
+                return jsonify({"error": "Invalid time set"}), 400
+            event.time = time  # type: ignore[reportAttributeAccessIssue]
 
         group_id = data.get("group_id")
         if group_id is not None:
@@ -465,7 +501,7 @@ def delete_event(id: int):
 # NOTE: Helper functions
 
 
-def validate_time(time_str: str | None):
+def validate_time(time_str: str):
     """
     Validates the time string and returns a datetime object if valid,
     or an error message if invalid.
@@ -474,9 +510,6 @@ def validate_time(time_str: str | None):
     - datetime object: If the time string is valid
     - (tuple(json error message), error code): If the time string is invalid
     """
-    if time_str is None:
-        return None, (jsonify({"error": "time is required"}), 400)
-
     try:
         event_time = dt.fromisoformat(time_str)
     except ValueError:
@@ -484,9 +517,6 @@ def validate_time(time_str: str | None):
 
     if event_time.tzinfo is None:
         event_time = event_time.replace(tzinfo=tz.utc)
-
-    if event_time < dt.now(tz.utc):
-        return None, (jsonify({"error": "Invalid time set"}), 400)
 
     return event_time, None
 
@@ -502,7 +532,7 @@ def validate_and_normalise_ph(number: str) -> str | None:
         None: Otherwise
     """
     try:
-        num = ph.parse(number, default_region="AU")
+        num = ph.parse(number, region="AU")
 
         if not ph.is_valid_number(num):
             return None
