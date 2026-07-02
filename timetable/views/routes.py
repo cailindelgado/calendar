@@ -28,13 +28,125 @@ def health():
     return jsonify({"status": "ok"})
 
 
-# Missionary routes
+# ------------------------------------ Missionary routes ------------------------------------
+@api.route("/missionaries", methods=["GET"])
+def get_missionaries():
+    try:
+        data = request.get_json()
+        query = select(Missionaries)
+
+        name = data.get("name")
+        if name is not None:
+            query = query.where(Missionaries.name.ilike(f"%{name}%"))
+
+        allergies = data.get("allergies")  # probably represent this with boolean
+        if allergies is not None:
+            query = query.where(Missionaries.allergies.is_not(None))
+
+        group_id = data.get("group")
+        if group_id is not None:
+            query = query.where(Missionaries.group == group_id)
+
+        missionaries = db.session.execute(query)
+        return jsonify([missionary.to_dict() for missionary in missionaries])
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
-# Misisonary Group routes
+@api.route("/missionaries/<int:id>", methods=["GET"])
+def get_missionary(id):
+    try:
+        missionary = db.session.execute(
+            select(Missionaries).where(Missionaries.id == id)
+        ).scalar_one_or_none()
+        if missionary is None:
+            return jsonify({"error": "Missionary not found"}), 404
+
+        return jsonify(missionary.to_dict())
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
-@api.route("/missionary/group/", methods=["GET"])
+@api.route("/missionaries/", methods=["POST"])
+def create_missionary():
+    try:
+        data = request.get_json()
+
+        name = data.get("name")
+        if name is None:
+            return jsonify({"error": "Name is required"}), 400
+
+        allergies = data.get("allergies")
+        group = data.get("missionary_group")
+        if group is None:
+            return jsonify({"error": "Missionary group is required"}), 400
+
+        missionary = Missionaries(name=name, allergies=allergies, group_id=group)
+        db.session.add(missionary)
+        db.session.commit()
+
+        return jsonify({"message": "Missionary created successfully"}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+@api.route("/missionaries/<int:id>", methods=["PUT"])
+def update_missionary(id):
+    try:
+        data = request.get_json()
+
+        name = data.get("name")
+        if name is None:
+            return jsonify({"error": "Name is required"}), 400
+
+        allergies = data.get("allergies")
+        group = data.get("missionary_group")
+        if group is None:
+            return jsonify({"error": "Missionary group is required"}), 400
+
+        missionary = db.session.execute(
+            select(Missionaries).where(Missionaries.id == id)
+        ).scalar_one_or_none()
+        if missionary is None:
+            return jsonify({"error": "Missionary not found"}), 404
+
+        missionary.name = name
+        missionary.allergies = allergies
+        missionary.group = group
+        db.session.commit()
+
+        return jsonify({"message": "Missionary updated successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+@api.route("/missionaries/<int:id>", methods=["DELETE"])
+def delete_missionary(id):
+    try:
+        missionary = db.session.execute(
+            select(Missionaries).where(Missionaries.id == id)
+        ).scalar_one_or_none()
+        if missionary is None:
+            return jsonify({"error": "Missionary not found"}), 404
+
+        db.session.delete(missionary)
+        db.session.commit()
+
+        return jsonify({"message": "Missionary deleted successfully"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+# ------------------------------------ Groups routes ------------------------------------
+@api.route("/group", methods=["GET"])
 def get_groups():
     try:
         query = select(Groups)
@@ -53,11 +165,12 @@ def get_groups():
 
         groups = db.session.execute(query).scalars().all()
         return jsonify([group.to_dict() for group in groups])
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-@api.route("/missionary/group/<int:group_id>", methods=["GET"])
+@api.route("/group/<int:group_id>", methods=["GET"])
 def get_group(group_id):
     try:
         group = db.session.execute(
@@ -67,21 +180,23 @@ def get_group(group_id):
             return jsonify({"error": "Group not found"}), 404
 
         return jsonify(group.to_dict())
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-@api.route("/missionary/group/<int:group_id>/events", methods=["GET"])
+@api.route("/group/<int:group_id>/events", methods=["GET"])
 def get_group_events(group_id):
     try:
         query = select(Events).where(Events.missionary_group == group_id)
         events = db.session.execute(query).scalars().all()
         return jsonify([event.to_dict() for event in events])
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
-@api.route("/missionary/group/", methods=["POST"])
+@api.route("/group", methods=["POST"])
 def create_group():
     try:
         data = request.get_json()
@@ -104,12 +219,13 @@ def create_group():
         db.session.add(group)
         db.session.commit()
         return jsonify(group.to_dict()), 201
+
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
 
-@api.route("/missionary/group/<int:group_id>", methods=["PUT"])
+@api.route("/group/<int:group_id>", methods=["PUT"])
 def update_group(group_id):
     try:
         data = request.get_json()
@@ -134,32 +250,40 @@ def update_group(group_id):
 
         db.session.commit()
         return jsonify(group.to_dict()), 200
+
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
 
-@api.route("/missionary/group/<int:group_id>", methods=["DELETE"])
+@api.route("/group/<int:group_id>", methods=["DELETE"])
 def delete_group(group_id):
     try:
         group = db.session.get(Groups, group_id)
         if group is None:
             return jsonify({"error": "Group not found"}), 404
+
+        future_events = db.session.execute(
+            select(Events)
+            .where(Events.missionary_group == group_id, Events.time >= dt.now(tz.utc))
+            .limit(1)
+        ).scalar_one_or_none()
+        if future_events is not None:
+            return jsonify({"error": "Group has future events"}), 409
+
         db.session.delete(group)
         db.session.commit()
         return jsonify({"message": "Group deleted"}), 200
+
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
 
-# Event routes
-
-
+# ------------------------------------ Event routes ------------------------------------
 @api.route("/events", methods=["GET"])
 def get_events():
     try:
-        # query = select(Events)
         query = select(Events).join(Groups, Events.missionary_group == Groups.id)
 
         group_id = request.args.get("group_id")

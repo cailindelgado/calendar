@@ -50,7 +50,9 @@ class Groups(db.Model):
     missionary_type: Mapped[str] = mapped_column(String(MISSIONARY_TYPE_LENGTH))
     ward: Mapped[str] = mapped_column(String(NAME_LENGTH))
 
-    missionaries: Mapped[list[Missionaries]] = relationship(back_populates="group")
+    missionaries: Mapped[list[Missionaries]] = relationship(
+        back_populates="group", cascade="all, delete-orphan"
+    )
 
     def to_dict(self) -> dict[str, int | str]:
         return {
